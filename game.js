@@ -93,36 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ];
 
-    // Move this initialization before any functions that use it
-    let pelletCount = countPellets();
-
-    // Game controls
-    document.addEventListener('keydown', (e) => {
-        switch (e.key) {
-            case 'ArrowUp':
-                pacman.nextDirection = 'up';
-                break;
-            case 'ArrowDown':
-                pacman.nextDirection = 'down';
-                break;
-            case 'ArrowLeft':
-                pacman.nextDirection = 'left';
-                break;
-            case 'ArrowRight':
-                pacman.nextDirection = 'right';
-                break;
-            case 'p':
-            case 'P':
-                if (gameState === GAME_STATE.PLAYING) {
-                    gameState = GAME_STATE.PAUSED;
-                } else if (gameState === GAME_STATE.PAUSED) {
-                    gameState = GAME_STATE.PLAYING;
-                    lastFrameTime = performance.now();
-                }
-                break;
-        }
-    });
-
     // Function to check if a position is valid (not a wall)
     function isValidPosition(x, y) {
         const gridX = Math.floor(x / CELL_SIZE);
@@ -173,26 +143,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Animate mouth
         pacman.mouthOpen = !pacman.mouthOpen;
-    }
-
-    // Function to collect pellets
-    function collectPellets() {
-        const gridX = Math.floor((pacman.x + CELL_SIZE / 2) / CELL_SIZE);
-        const gridY = Math.floor((pacman.y + CELL_SIZE / 2) / CELL_SIZE);
-        
-        if (maze[gridY][gridX] === PELLET) {
-            maze[gridY][gridX] = PATH;
-            score += 10;
-            scoreElement.textContent = score;
-            pelletCount--;
-        } else if (maze[gridY][gridX] === POWER_PELLET) {
-            maze[gridY][gridX] = PATH;
-            score += 50;
-            scoreElement.textContent = score;
-            pelletCount--;
-            ghost.frightened = true;
-            setTimeout(() => { ghost.frightened = false; }, 8000);
-        }
     }
 
     // Simple function to move ghost
