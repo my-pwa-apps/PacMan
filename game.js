@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const PATH = 0;
     const PELLET = 2;
     const POWER_PELLET = 3;
-
+    
     // Define complete maze layout first
     const maze = [
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -58,14 +58,43 @@ document.addEventListener('DOMContentLoaded', () => {
         PAUSED: 2,
         GAME_OVER: 3
     };
-    
-    // Initialize game state variables after maze is defined
+
+    // Game State Initialization
     let gameState = GAME_STATE.MENU;
     let animationFrameId = null;
     let lastFrameTime = 0;
     let score = 0;
     let lives = 3;
     let pelletCount = 0;
+    let paused = false;
+
+    // Pause functionality
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'p' || e.key === 'P') {
+            togglePause();
+        }
+    });
+
+    function togglePause() {
+        if (gameState === GAME_STATE.PLAYING) {
+            gameState = GAME_STATE.PAUSED;
+            drawPauseScreen();
+       } else if (gameState === GAME_STATE.PAUSED) {
+            gameState = GAME_STATE.PLAYING;
+            lastFrameTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+    }
+
+    // Pause screen display
+    function drawPauseScreen() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'white';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
+    }
 
     // Function to check if a position is valid (not a wall)
     function isValidPosition(x, y) {
@@ -206,19 +235,28 @@ document.addEventListener('DOMContentLoaded', () => {
         checkGhostCollision();
     }
 
+    // Check for wall collision
     function checkWallCollision(x, y) {
         const gridX = Math.floor((x + CELL_SIZE / 2) / CELL_SIZE);
         const gridY = Math.floor((y + CELL_SIZE / 2) / CELL_SIZE);
         return maze[gridY]?.[gridX] === WALL;
     }
 
-    function checkGhostCollision() {
-        const dx = ghost.x - pacman.x;
-        const dy = ghost.y - pacman.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance < CELL_SIZE;
+    // Check for collision with Pacman
+    function checkCollision(obj1, obj2) {
+        const dx = obj1.x - obj2.x;
+        const dy = obj1.y - obj2.y;
+        return Math.sqrt(dx * dx + dy * dy) < CELL_SIZE;
     }
 
+    // Function to check if a ghost collides with pacman
+    function checkGhostCollision() {
+        if (checkCollision(ghost, pacman)) {
+            handleGhostCollision();
+        }
+    }
+
+    // Function for ghost to avoid pacman
     function calculateNextMove(ghost, target) {
         const currentTile = {
             x: Math.floor(ghost.x / CELL_SIZE),
@@ -247,6 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, null)?.move;
     }
 
+    // Function to check for pellet collisions
     function collectPellets() {
         const gridX = Math.floor((pacman.x + CELL_SIZE / 2) / CELL_SIZE);
         const gridY = Math.floor((pacman.y + CELL_SIZE / 2) / CELL_SIZE);
@@ -254,15 +293,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (maze[gridY][gridX] === PELLET) {
             maze[gridY][gridX] = PATH;
             score += 10;
-            scoreElement.textContent = score;
             pelletCount--;
+            scoreElement.textContent = score;
         } else if (maze[gridY][gridX] === POWER_PELLET) {
             maze[gridY][gridX] = PATH;
             score += 50;
-            scoreElement.textContent = score;
             pelletCount--;
-            // Add power pellet logic here if needed
+            scoreElement.textContent = score;
+            activatePowerMode();
         }
+    }
+
+    // Activate power mode by making ghosts vulnerable
+    function activatePowerMode() {
+        ghost.frightened = true;
+        ghost.color = 'blue';
+        // Revert color after 8 seconds
+        setTimeout(() => {
+            ghost.frightened = false;
+            ghost.color = 'red';
+        }, 8000);
     }
 
     // Initialize pellet count
@@ -294,34 +344,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         lastFrameTime = timestamp;
 
-        if (gameState === GAME_STATE.PLAYING) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            updatePacman(deltaTime);
-            moveGhost(deltaTime);
-            
-            drawPacman();
-            drawGhost();
+        updateGame(deltaTime);
+        drawGame();
 
-            if (pelletCount <= 0) {
-                gameState = GAME_STATE.GAME_OVER;
-                showGameOverScreen('You Win!');
-                return;
-            }
-        } else if (gameState === GAME_STATE.PAUSED) {
-            drawPauseScreen();
+        if (pelletCount <= 0) {
+            gameState = GAME_STATE.GAME_OVER;
+            showGameOverScreen('You Win!');
+            return;
         }
-
-        animationFrameId = requestAnimationFrame(gameLoop);
     }
 
-    function drawPauseScreen() {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'white';
-        ctx.font = '24px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
+    // Update the game state
+    function updateGame(deltaTime) {
+        updatePacman(deltaTime);
+        moveGhost(deltaTime);
+        
+        if (checkCollision(pacman, ghost)) {
+            handleGhostCollision();
+        }
     }
 
     // Draw pacman
@@ -383,6 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fill();
     }
 
+    // Function to handle collision with ghosts
     function handleGhostCollision() {
         if (ghost.frightened) {
             score += 200;
@@ -402,6 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Function to reset positions
     function resetPositions() {
         pacman.x = 14 * CELL_SIZE;
         pacman.y = 23 * CELL_SIZE;
@@ -412,6 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ghost.y = 11 * CELL_SIZE;
     }
 
+    // Function to show game over screen
     function showGameOverScreen(message) {
         menu.style.display = 'block';
         startButton.textContent = 'Play Again';
@@ -431,17 +474,17 @@ document.addEventListener('DOMContentLoaded', () => {
         countPellets();
     }
 
-    // Initialize pellet count before game start
-    countPellets();
-
-    // Initialize game start button
-    startButton.addEventListener('click', () => {
+    // Function to start the game
+    function startGame() {
         gameState = GAME_STATE.PLAYING;
         menu.style.display = 'none';
         resetGame();
         lastFrameTime = performance.now();
         animationFrameId = requestAnimationFrame(gameLoop);
-    });
+    }
+
+    // Initialize game state
+    startButton.addEventListener('click', () => startGame());
 
     // Start the first loop
     gameLoop();
