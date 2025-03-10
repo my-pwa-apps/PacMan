@@ -3,15 +3,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctx = canvas.getContext('2d');
     const scoreElement = document.getElementById('score');
     const livesElement = document.getElementById('lives');
+    const startButton = document.getElementById('startButton');
+    const menu = document.getElementById('menu');
 
     // Game constants
     const CELL_SIZE = 16;
     const ROWS = 31;
     const COLS = 28;
-
-    // Game variables
+    
+    // Game state management
+    const GAME_STATE = {
+        MENU: 0,
+        PLAYING: 1,
+        PAUSED: 2,
+        GAME_OVER: 3
+    };
+    let gameState = GAME_STATE.MENU;
+    let animationFrameId = null;
+    let lastFrameTime = 0;
     let score = 0;
     let lives = 3;
+    let pelletCount = 0;
+
+    // Game variables
     let pacman = {
         x: 14 * CELL_SIZE,
         y: 23 * CELL_SIZE,
@@ -163,20 +177,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetGame() {
         score = 0;
         lives = 3;
+        gameState = GAME_STATE.PLAYING;
         scoreElement.textContent = score;
         livesElement.textContent = lives;
-        
-        // Reset maze
-        for (let y = 0; y < ROWS; y++) {
-            for (let x = 0; x < COLS; x++) {
-                if (x > 0 && x < COLS-1 && y > 0 && y < ROWS-1) {
-                    maze[y][x] = 2;
-                }
-            }
-        }
-        maze[23][14] = 0;
-        
         resetPositions();
+        countPellets();
+    }
+
+    function showGameOverScreen(message) {
+        menu.style.display = 'block';
+        startButton.textContent = 'Play Again';
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+        }
     }
 
     // Draw the maze
@@ -392,6 +405,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return bestMove;
     }
+
+    // Initialize game start button
+    startButton.addEventListener('click', () => {
+        gameState = GAME_STATE.PLAYING;
+        menu.style.display = 'none';
+        resetGame();
+        lastFrameTime = performance.now();
+        gameLoop(lastFrameTime);
+    });
 
     // Start the game
     gameLoop();
