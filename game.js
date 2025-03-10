@@ -29,35 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastFrameTime = 0;
     let score = 0;
     let lives = 3;
-
-    // Game variables
-    let pacman = {
-        x: 14 * CELL_SIZE,
-        y: 23 * CELL_SIZE,
-        size: CELL_SIZE,
-        speed: 2,
-        direction: 'right',
-        nextDirection: 'right',
-        color: 'yellow',
-        mouthOpen: true,
-        mouthAngle: 0.2,
-        currentMouthAngle: 0,
-        mouthSpeed: 0.02
-    };
-
-    // Simple ghost
-    let ghost = {
-        x: 14 * CELL_SIZE,
-        y: 11 * CELL_SIZE,
-        size: CELL_SIZE,
-        speed: 1,
-        color: 'red',
-        mode: 'chase',
-        modeTimer: 0,
-        modeDuration: { chase: 20000, scatter: 7000 },
-        scatterTarget: { x: 0, y: 0 },
-        frightened: false
-    };
+    let pelletCount = 0;
 
     // Define the complete maze layout
     const maze = [
@@ -266,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fill();
     }
 
-    // Update pacman and ghost
+    // Move updatePacman after collectPellets definition
     function updatePacman(deltaTime) {
         // Update mouth animation
         pacman.currentMouthAngle += pacman.mouthSpeed * deltaTime;
@@ -373,16 +345,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }, null)?.move;
     }
 
+    function collectPellets() {
+        const gridX = Math.floor((pacman.x + CELL_SIZE / 2) / CELL_SIZE);
+        const gridY = Math.floor((pacman.y + CELL_SIZE / 2) / CELL_SIZE);
+        
+        if (maze[gridY][gridX] === PELLET) {
+            maze[gridY][gridX] = PATH;
+            score += 10;
+            scoreElement.textContent = score;
+            pelletCount--;
+        } else if (maze[gridY][gridX] === POWER_PELLET) {
+            maze[gridY][gridX] = PATH;
+            score += 50;
+            scoreElement.textContent = score;
+            pelletCount--;
+            // Add power pellet logic here if needed
+        }
+    }
+
     function countPellets() {
-        pelletCount = 0;
+        let count = 0;
         for (let y = 0; y < ROWS; y++) {
             for (let x = 0; x < COLS; x++) {
                 if (maze[y][x] === PELLET || maze[y][x] === POWER_PELLET) {
-                    pelletCount++;
+                    count++;
                 }
             }
         }
-        return pelletCount;
+        pelletCount = count;
+        return count;
     }
 
     // Optimize game loop
@@ -510,7 +501,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Start the game
+    // Initialize pellet count before game start
+    countPellets();
+
+    // Initialize game start button
     startButton.addEventListener('click', () => {
         gameState = GAME_STATE.PLAYING;
         menu.style.display = 'none';
