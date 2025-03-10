@@ -66,8 +66,11 @@ document.addEventListener('DOMContentLoaded', () => {
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ];
     
-    // Store original maze state for resetting
-    const originalMaze = maze.map(row => [...row]);
+    // Store original maze state for resetting - create a deep copy of the maze for resets
+    const originalMaze = [];
+    for (let y = 0; y < maze.length; y++) {
+        originalMaze[y] = [...maze[y]];
+    }
     
     // Game objects
     let pacman = {
@@ -378,19 +381,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ghost.frightened = false;
             ghost.color = 'red';
         }, 8000);
-    }
-
-    // Function to check for pellet counting
-    function pelCa() {
-        let count = 0;
-        for (let y = 0; y < ROWS; y++) {
-            for (let x = 0; x < COLS; x++) {
-                if (maze[y][x] === PELLET || maze[y][x] === POWER_PELLET) {
-                    count++;
-                }
-            }
-        }
-        return count;
     }
 
     // Function to reset the game and setup the start state
