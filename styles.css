@@ -1,0 +1,34 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+.game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    width: 448px;
+    color: white;
+    margin-bottom: 10px;
+    font-size: 24px;
+}
+
+#gameCanvas {
+    background-color: #000;
+    border: 2px solid blue;
+}
