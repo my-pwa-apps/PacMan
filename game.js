@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const PELLET = 2;
     const POWER_PELLET = 3;
 
-    // Define complete maze layout first
+    // Define complete maze layout first, before any functions or game logic
     const maze = [
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
         [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
@@ -58,14 +58,14 @@ document.addEventListener('DOMContentLoaded', () => {
         PAUSED: 2,
         GAME_OVER: 3
     };
-
+    
     // Initialize basic variables
     let gameState = GAME_STATE.MENU;
     let animationFrameId = null;
     let lastFrameTime = 0;
     let score = 0;
     let lives = 3;
-    let pelletCount = 0;
+    let pelletCount = countPellets(); // Now safe to call after maze is defined
 
     // Game objects initialization
     let pacman = {
