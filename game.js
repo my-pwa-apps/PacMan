@@ -66,9 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ];
     
-    // Create a deep copy of the maze right after definition
-    const originalMaze = JSON.parse(JSON.stringify(maze));
-    
     // Game objects
     let pacman = {
         x: 14 * CELL_SIZE,
@@ -248,7 +245,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to move ghost
     function moveGhost() {
-        // Simple random movement
         const directions = ['up', 'down', 'left', 'right'];
         const direction = directions[Math.floor(Math.random() * directions.length)];
         
@@ -380,7 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 8000);
     }
 
-    // Function to reset the game and setup the start state
+    // After the maze definition, create a simple reset function that doesn't rely on originalMaze
     function resetGame() {
         score = 0;
         lives = 3;
@@ -388,10 +384,15 @@ document.addEventListener('DOMContentLoaded', () => {
         scoreElement.textContent = score;
         livesElement.textContent = lives;
         
-        // Reset the maze back to original state with all pellets
+        // Simplify: Reset all pellets directly without using originalMaze
         for (let y = 0; y < ROWS; y++) {
             for (let x = 0; x < COLS; x++) {
-                maze[y][x] = originalMaze[y][x];
+                // Set pellets according to standard maze pattern
+                if ((x === 1 || x === COLS-2) && (y === 3 || y === 23)) {
+                    maze[y][x] = POWER_PELLET; // Power pellets in corners
+                } else if (maze[y][x] !== WALL) {
+                    maze[y][x] = PELLET; // Regular pellets on paths
+                }
             }
         }
         
@@ -481,24 +482,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Add resetPositions if it doesn't exist
     function resetPositions() {
-        // Reset pacman position
         pacman.x = 14 * CELL_SIZE;
         pacman.y = 23 * CELL_SIZE;
         pacman.direction = 'right';
         pacman.nextDirection = 'right';
-        pacman.mouthOpen = true;
-        pacman.mouthAngle = 0.2;
-        pacman.currentMouthAngle = 0;
         
-        // Reset ghost position
         ghost.x = 14 * CELL_SIZE;
         ghost.y = 11 * CELL_SIZE;
-        ghost.mode = 'chase';
-        ghost.modeTimer = 0;
-        if (ghost.frightened) {
-            ghost.frightened = false;
-            ghost.color = 'red';
-        }
     }
 });
