@@ -56,7 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
         mode: 'chase',
         modeTimer: 0,
         modeDuration: { chase: 20000, scatter: 7000 },
-        scatterTarget: { x: 0, y: 0 }
+        scatterTarget: { x: 0, y: 0 },
+        frightened: false
     };
 
     // Fix maze array to match standard Pac-Man layout
@@ -80,6 +81,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'ArrowRight':
                 pacman.nextDirection = 'right';
+                break;
+            case 'p':
+            case 'P':
+                if (gameState === GAME_STATE.PLAYING) {
+                    gameState = GAME_STATE.PAUSED;
+                } else if (gameState === GAME_STATE.PAUSED) {
+                    gameState = GAME_STATE.PLAYING;
+                    lastFrameTime = performance.now();
+                }
                 break;
         }
     });
@@ -274,35 +284,47 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fill();
     }
 
-    // Game loop
-    function gameLoop(timestamp) {
-        if (gameState !== GAME_STATE.PLAYING) return;
-
-        const deltaTime = timestamp - lastFrameTime;
-        lastFrameTime = timestamp;
-
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Update game objects with deltaTime
-        updatePacman(deltaTime);
-        updateGhost(deltaTime);
+    // Function to collect pellets
+    function collectPellets() {
+        const gridX = Math.floor((pacman.x + CELL_SIZE / 2) / CELL_SIZE);
+        const gridY = Math.floor((pacman.y + CELL_SIZE / 2) / CELL_SIZE);
         
-        // Draw game objects
-        drawMaze();
-        drawPacman();
-        drawGhost();
-
-        // Check win condition
-        if (pelletCount <= 0) {
-            gameState = GAME_STATE.GAME_OVER;
-            showGameOverScreen('You Win!');
-            return;
+        if (maze[gridY][gridX] === PELLET) {
+            maze[gridY][gridX] = PATH;
+            score += 10;
+            scoreElement.textContent = score;
+            pelletCount--;
+        } else if (maze[gridY][gridX] === POWER_PELLET) {
+            maze[gridY][gridX] = PATH;
+            score += 50;
+            scoreElement.textContent = score;
+            pelletCount--;
+            ghost.frightened = true;
+            setTimeout(() => { ghost.frightened = false; }, 8000);
         }
-
-        animationFrameId = requestAnimationFrame(gameLoop);
     }
 
+    // Function to handle ghost collision
+    function handleGhostCollision() {
+        if (ghost.frightened) {
+            score += 200;
+            scoreElement.textContent = score;
+            ghost.x = 14 * CELL_SIZE;
+            ghost.y = 11 * CELL_SIZE;
+            ghost.frightened = false;
+        } else {
+            lives--;
+            livesElement.textContent = lives;
+            if (lives <= 0) {
+                gameState = GAME_STATE.GAME_OVER;
+                showGameOverScreen('Game Over');
+            } else {
+                resetPositions();
+            }
+        }
+    }
+
+    // Update pacman and ghost
     function updatePacman(deltaTime) {
         // Update mouth animation
         pacman.currentMouthAngle += pacman.mouthSpeed * deltaTime;
@@ -382,34 +404,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function calculateNextMove(ghost, target) {
-        // Simplified A* pathfinding implementation
         const currentTile = {
             x: Math.floor(ghost.x / CELL_SIZE),
             y: Math.floor(ghost.y / CELL_SIZE)
         };
         
+        // Avoid reversing direction unless necessary
         const possibleMoves = [
             {x: 1, y: 0}, {x: -1, y: 0},
             {x: 0, y: 1}, {x: 0, y: -1}
-        ];
-
-        let bestMove = null;
-        let bestDistance = Infinity;
-
-        for (const move of possibleMoves) {
+        ].filter(move => {
             const newX = currentTile.x + move.x;
             const newY = currentTile.y + move.y;
-            
-            if (maze[newY]?.[newX] !== WALL) {
-                const distance = Math.abs(newX - target.x) + Math.abs(newY - target.y);
-                if (distance < bestDistance) {
-                    bestDistance = distance;
-                    bestMove = move;
-                }
-            }
+            return maze[newY]?.[newX] !== WALL;
+        });
+
+        if (ghost.frightened) {
+            return possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
         }
 
-        return bestMove;
+        return possibleMoves.reduce((best, move) => {
+            const newX = currentTile.x + move.x;
+            const newY = currentTile.y + move.y;
+            const distance = Math.abs(newX - target.x) + Math.abs(newY - target.y);
+            return !best || distance < best.distance ? { move, distance } : best;
+        }, null)?.move;
     }
 
     function countPellets() {
@@ -424,15 +443,150 @@ document.addEventListener('DOMContentLoaded', () => {
         return pelletCount;
     }
 
-    // Initialize game start button
+    // Optimize game loop
+    function gameLoop(timestamp) {
+        if (!lastFrameTime) {
+            lastFrameTime = timestamp;
+            animationFrameId = requestAnimationFrame(gameLoop);
+            return;
+        }
+
+        const deltaTime = timestamp - lastFrameTime;
+        if (deltaTime < 16) { // Cap at ~60 FPS
+            animationFrameId = requestAnimationFrame(gameLoop);
+            return;
+        }
+
+        lastFrameTime = timestamp;
+
+        if (gameState === GAME_STATE.PLAYING) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            updatePacman(deltaTime);
+            updateGhost(deltaTime);
+            
+            drawMaze();
+            drawPacman();
+            drawGhost();
+            
+            if (pelletCount <= 0) {
+                gameState = GAME_STATE.GAME_OVER;
+                showGameOverScreen('You Win!');
+                return;
+            }
+        } else if (gameState === GAME_STATE.PAUSED) {
+            drawPauseScreen();
+        }
+
+        animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    function drawPauseScreen() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'white';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
+    }
+
+    // Draw the maze
+    function drawMaze() {
+        for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (maze[y][x] === 1) {
+                    ctx.fillStyle = 'blue';
+                    ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                } else if (maze[y][x] === 2) {
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+    }
+
+    // Draw pacman
+    function drawPacman() {
+        ctx.fillStyle = pacman.color;
+        ctx.beginPath();
+        
+        const mouthAngle = pacman.mouthOpen ? pacman.mouthAngle : 0;
+        let startAngle = 0;
+        let endAngle = Math.PI * 2;
+        
+        if (pacman.direction === 'right') {
+            startAngle = mouthAngle;
+            endAngle = Math.PI * 2 - mouthAngle;
+        } else if (pacman.direction === 'left') {
+            startAngle = Math.PI + mouthAngle;
+            endAngle = Math.PI - mouthAngle;
+        } else if (pacman.direction === 'up') {
+            startAngle = Math.PI * 1.5 + mouthAngle;
+            endAngle = Math.PI * 1.5 - mouthAngle;
+        } else if (pacman.direction === 'down') {
+            startAngle = Math.PI * 0.5 + mouthAngle;
+            endAngle = Math.PI * 0.5 - mouthAngle;
+        }
+        
+        ctx.arc(pacman.x + pacman.size / 2, pacman.y + pacman.size / 2, pacman.size / 2, startAngle, endAngle);
+        ctx.lineTo(pacman.x + pacman.size / 2, pacman.y + pacman.size / 2);
+        ctx.fill();
+    }
+
+    // Draw ghost
+    function drawGhost() {
+        ctx.fillStyle = ghost.color;
+        ctx.beginPath();
+        ctx.arc(ghost.x + ghost.size / 2, ghost.y + ghost.size / 2, ghost.size / 2, Math.PI, 0);
+        ctx.lineTo(ghost.x + ghost.size, ghost.y + ghost.size);
+        ctx.lineTo(ghost.x + ghost.size * 0.75, ghost.y + ghost.size * 0.75);
+        ctx.lineTo(ghost.x + ghost.size * 0.5, ghost.y + ghost.size);
+        ctx.lineTo(ghost.x + ghost.size * 0.25, ghost.y + ghost.size * 0.75);
+        ctx.lineTo(ghost.x, ghost.y + ghost.size);
+        ctx.lineTo(ghost.x, ghost.y + ghost.size / 2);
+        ctx.fill();
+        
+        // Draw eyes
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(ghost.x + ghost.size / 3, ghost.y + ghost.size / 3, ghost.size / 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(ghost.x + ghost.size * 2/3, ghost.y + ghost.size / 3, ghost.size / 6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = 'blue';
+        ctx.beginPath();
+        ctx.arc(ghost.x + ghost.size / 3, ghost.y + ghost.size / 3, ghost.size / 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(ghost.x + ghost.size * 2/3, ghost.y + ghost.size / 3, ghost.size / 12, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function countPellets() {
+        pelletCount = 0;
+        for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (maze[y][x] === PELLET || maze[y][x] === POWER_PELLET) {
+                    pelletCount++;
+                }
+            }
+        }
+        return pelletCount;
+    }
+
+    // Start the game
     startButton.addEventListener('click', () => {
         gameState = GAME_STATE.PLAYING;
         menu.style.display = 'none';
         resetGame();
         lastFrameTime = performance.now();
-        gameLoop(lastFrameTime);
+        animationFrameId = requestAnimationFrame(gameLoop);
     });
 
-    // Start the game
+    // Start the first loop
     gameLoop();
 });
