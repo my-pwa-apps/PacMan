@@ -21,7 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
         nextDirection: 'right',
         color: 'yellow',
         mouthOpen: true,
-        mouthAngle: 0.2
+        mouthAngle: 0.2,
+        currentMouthAngle: 0,
+        mouthSpeed: 0.02
     };
 
     // Simple ghost
@@ -30,22 +32,19 @@ document.addEventListener('DOMContentLoaded', () => {
         y: 11 * CELL_SIZE,
         size: CELL_SIZE,
         speed: 1,
-        color: 'red'
+        color: 'red',
+        mode: 'chase',
+        modeTimer: 0,
+        modeDuration: { chase: 20000, scatter: 7000 },
+        scatterTarget: { x: 0, y: 0 }
     };
 
-    // Simple maze layout (1 for walls, 0 for paths, 2 for pellets)
-    let maze = Array(ROWS).fill().map(() => Array(COLS).fill(2));
-    // Adding some walls for demonstration
-    for (let i = 0; i < ROWS; i++) {
-        maze[i][0] = 1;
-        maze[i][COLS - 1] = 1;
-    }
-    for (let j = 0; j < COLS; j++) {
-        maze[0][j] = 1;
-        maze[ROWS - 1][j] = 1;
-    }
-    // Clear pacman's starting position
-    maze[23][14] = 0;
+    // Fix maze array to match standard Pac-Man layout
+    const maze = [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
+        // ...rest of maze layout...
+    ];
 
     // Game controls
     document.addEventListener('keydown', (e) => {
@@ -257,17 +256,141 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Game loop
-    function gameLoop() {
+    function gameLoop(timestamp) {
+        if (gameState !== GAME_STATE.PLAYING) return;
+
+        const deltaTime = timestamp - lastFrameTime;
+        lastFrameTime = timestamp;
+
+        // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Update game objects with deltaTime
+        updatePacman(deltaTime);
+        updateGhost(deltaTime);
         
+        // Draw game objects
         drawMaze();
         drawPacman();
         drawGhost();
+
+        // Check win condition
+        if (pelletCount <= 0) {
+            gameState = GAME_STATE.GAME_OVER;
+            showGameOverScreen('You Win!');
+            return;
+        }
+
+        animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    function updatePacman(deltaTime) {
+        // Update mouth animation
+        pacman.currentMouthAngle += pacman.mouthSpeed * deltaTime;
+        if (pacman.currentMouthAngle >= 0.5 || pacman.currentMouthAngle <= 0) {
+            pacman.mouthSpeed *= -1;
+        }
+
+        // Calculate new position
+        const speed = pacman.speed * (deltaTime / 16); // Normalize speed for 60fps
+        let newX = pacman.x;
+        let newY = pacman.y;
+
+        // Move based on current direction
+        if (pacman.direction === 'right') newX += speed;
+        if (pacman.direction === 'left') newX -= speed;
+        if (pacman.direction === 'up') newY -= speed;
+        if (pacman.direction === 'down') newY += speed;
+
+        // Handle tunnel wrapping
+        if (newX < -CELL_SIZE) newX = canvas.width;
+        if (newX > canvas.width) newX = -CELL_SIZE;
+
+        // Check wall collision and update position
+        if (!checkWallCollision(newX, newY)) {
+            pacman.x = newX;
+            pacman.y = newY;
+        }
+
+        // Check and collect pellets
+        collectPellets();
+    }
+
+    function updateGhost(deltaTime) {
+        const speed = ghost.speed * (deltaTime / 16);
         
-        movePacman();
-        moveGhost();
+        // Update ghost mode
+        ghost.modeTimer += deltaTime;
+        if (ghost.modeTimer >= ghost.modeDuration[ghost.mode]) {
+            ghost.mode = ghost.mode === 'chase' ? 'scatter' : 'chase';
+            ghost.modeTimer = 0;
+        }
+
+        // Update target based on mode
+        if (ghost.mode === 'chase') {
+            ghost.targetTile = {
+                x: Math.floor(pacman.x / CELL_SIZE),
+                y: Math.floor(pacman.y / CELL_SIZE)
+            };
+        } else {
+            ghost.targetTile = ghost.scatterTarget;
+        }
+
+        // Calculate next move using A* pathfinding
+        const nextMove = calculateNextMove(ghost, ghost.targetTile);
+        if (nextMove) {
+            ghost.x += nextMove.x * speed;
+            ghost.y += nextMove.y * speed;
+        }
+
+        // Check collision with Pacman
+        if (checkGhostCollision()) {
+            handleGhostCollision();
+        }
+    }
+
+    function checkWallCollision(x, y) {
+        const gridX = Math.floor((x + CELL_SIZE / 2) / CELL_SIZE);
+        const gridY = Math.floor((y + CELL_SIZE / 2) / CELL_SIZE);
+        return maze[gridY]?.[gridX] === WALL;
+    }
+
+    function checkGhostCollision() {
+        const dx = ghost.x - pacman.x;
+        const dy = ghost.y - pacman.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance < CELL_SIZE;
+    }
+
+    function calculateNextMove(ghost, target) {
+        // Simplified A* pathfinding implementation
+        const currentTile = {
+            x: Math.floor(ghost.x / CELL_SIZE),
+            y: Math.floor(ghost.y / CELL_SIZE)
+        };
         
-        requestAnimationFrame(gameLoop);
+        const possibleMoves = [
+            {x: 1, y: 0}, {x: -1, y: 0},
+            {x: 0, y: 1}, {x: 0, y: -1}
+        ];
+
+        let bestMove = null;
+        let bestDistance = Infinity;
+
+        for (const move of possibleMoves) {
+            const newX = currentTile.x + move.x;
+            const newY = currentTile.y + move.y;
+            
+            if (maze[newY]?.[newX] !== WALL) {
+                const distance = Math.abs(newX - target.x) + Math.abs(newY - target.y);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestMove = move;
+                }
+            }
+        }
+
+        return bestMove;
     }
 
     // Start the game
