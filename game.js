@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Function to update pacman position
-    function updatePacman(deltaTime) {
+    function updatePacman() {
         // Update mouth animation
         pacman.currentMouthAngle += pacman.mouthSpeed * deltaTime;
         if (pacman.currentMouthAngle >= 0.5 || pacman.currentMouthAngle <= 0) {
@@ -497,6 +497,27 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 resetPositions();
             }
+        }
+    }
+
+    function resetPositions() {
+        // Reset pacman position
+        pacman.x = 14 * CELL_SIZE;
+        pacman.y = 23 * CELL_SIZE;
+        pacman.direction = 'right';
+        pacman.nextDirection = 'right';
+        pacman.mouthOpen = true;
+        pacman.mouthAngle = 0.2;
+        pacman.currentMouthAngle = 0;
+        
+        // Reset ghost position
+        ghost.x = 14 * CELL_SIZE;
+        ghost.y = 11 * CELL_SIZE;
+        ghost.mode = 'chase';
+        ghost.modeTimer = 0;
+        if (ghost.frightened) {
+            ghost.frightened = false;
+            ghost.color = 'red';
         }
     }
 });
