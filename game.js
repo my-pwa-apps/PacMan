@@ -11,6 +11,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const ROWS = 31;
     const COLS = 28;
     
+    // Tile types
+    const WALL = 1;
+    const PATH = 0;
+    const PELLET = 2;
+    const POWER_PELLET = 3;
+    
     // Game state management
     const GAME_STATE = {
         MENU: 0,
