@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Set up DOM elements first
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreElement = document.getElementById('score');
@@ -6,26 +7,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const startButton = document.getElementById('startButton');
     const menu = document.getElementById('menu');
 
-    // Game constants
+    // Constants first - these are never dependent on anything else
     const CELL_SIZE = 16;
     const ROWS = 31;
     const COLS = 28;
     
-    // Tile types
     const WALL = 1;
     const PATH = 0;
     const PELLET = 2;
     const POWER_PELLET = 3;
     
-    // Game state management
     const GAME_STATE = {
         MENU: 0,
         PLAYING: 1,
         PAUSED: 2,
         GAME_OVER: 3
     };
-
-    // Define maze first, before any game state or functions
+    
+    // Basic variables with primitive defaults - don't depend on functions yet
+    let gameState = GAME_STATE.MENU;
+    let animationFrameId = null;
+    let lastFrameTime = 0;
+    let score = 0;
+    let lives = 3;
+    let pelletCount = 0; // Initialize to 0, will set correctly later
+    
+    // Complete maze definition - crucial to have this fully defined before use
     const maze = [
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
         [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
@@ -58,16 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
         [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ];
-
-    // Initialize game state variables after maze definition
-    let gameState = GAME_STATE.MENU;
-    let animationFrameId = null;
-    let lastFrameTime = 0;
-    let score = 0;
-    let lives = 3;
-    let pelletCount = 0;
-
-    // Define game objects
+    
+    // Game objects
     let pacman = {
         x: 14 * CELL_SIZE,
         y: 23 * CELL_SIZE,
@@ -79,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mouthAngle: 0.5,
         mouthOpen: true
     };
-
+    
     let ghost = {
         x: 14 * CELL_SIZE,
         y: 11 * CELL_SIZE,
@@ -93,26 +92,35 @@ document.addEventListener('DOMContentLoaded', () => {
         scatterTarget: { x: 1, y: 1 },
         frightMode: true
     };
-
-    // Now safe to define functions that use maze
+    
+    // Define functions
     function countPellets() {
         let count = 0;
-        for (let y = 0; y < ROWS; y++) {
-            for (let x = 0; x < COLS; x++) {
-                if (maze[y][x] === PELLET || maze[y][x] === POWER_PELLET) {
-                    count++;
+        try {
+            // Add defensive checks
+            if (!maze || !Array.isArray(maze) || maze.length === 0) {
+                console.error("Maze not properly initialized");
+                return 0;
+            }
+            
+            for (let y = 0; y < ROWS; y++) {
+                if (!maze[y] || !Array.isArray(maze[y])) continue;
+                
+                for (let x = 0; x < COLS; x++) {
+                    if (maze[y][x] === PELLET || maze[y][x] === POWER_PELLET) {
+                        count++;
+                    }
                 }
             }
+        } catch (e) {
+            console.error("Error counting pellets:", e);
+            return 0;
         }
         return count;
     }
-
-    // Initialize pellet count after everything is defined
-    pelletCount = countPellets();
-
+    
     // Move initialization into a proper setup function
     function initializeGame() {
-        pelletCount = countPellets();
         resetPositions();
         score = 0;
         lives = 3;
@@ -369,8 +377,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 8000);
     }
 
-    // Initialize pellet count
-    pelletCount = (() => {
+    // Function to check for pellet counting
+    function pelCa() {
         let count = 0;
         for (let y = 0; y < ROWS; y++) {
             for (let x = 0; x < COLS; x++) {
@@ -380,136 +388,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         return count;
-    })();
-
-    // Optimize game loop
-    function gameLoop(timestamp) {
-        if (!lastFrameTime) {
-            lastFrameTime = timestamp;
-            animationFrameId = requestAnimationFrame(gameLoop);
-            return;
-        }
-
-        const deltaTime = timestamp - lastFrameTime;
-        if (deltaTime < 16) { // Cap at ~60 FPS
-            animationFrameId = requestAnimationFrame(gameLoop);
-            return;
-        }
-
-        lastFrameTime = timestamp;
-
-        updateGame(deltaTime);
-        drawGame();
-
-        if (pelletCount <= 0) {
-            gameState = GAME_STATE.GAME_OVER;
-            showGameOverScreen('You Win!');
-            return;
-        }
     }
 
-    // Update the game state
-    function updateGame(deltaTime) {
-        updatePacman(deltaTime);
-        moveGhost(deltaTime);
-        
-        if (checkCollision(pacman, ghost)) {
-            handleGhostCollision();
-        }
-    }
-
-    // Draw pacman
-    function drawPacman() {
-        ctx.fillStyle = pacman.color;
-        ctx.beginPath();
-        
-        const mouthAngle = pacman.mouthOpen ? pacman.mouthAngle : 0;
-        let startAngle = 0;
-        let endAngle = Math.PI * 2;
-        
-        if (pacman.direction === 'right') {
-            startAngle = mouthAngle;
-            endAngle = Math.PI * 2 - mouthAngle;
-        } else if (pacman.direction === 'left') {
-            startAngle = Math.PI + mouthAngle;
-            endAngle = Math.PI - mouthAngle;
-        } else if (pacman.direction === 'up') {
-            startAngle = Math.PI * 1.5 + mouthAngle;
-            endAngle = Math.PI * 1.5 - mouthAngle;
-        } else if (pacman.direction === 'down') {
-            startAngle = Math.PI * 0.5 + mouthAngle;
-            endAngle = Math.PI * 0.5 - mouthAngle;
-        }
-        
-        ctx.arc(pacman.x + pacman.size / 2, pacman.y + pacman.size / 2, pacman.size / 2, startAngle, endAngle);
-        ctx.lineTo(pacman.x + pacman.size / 2, pacman.y + pacman.size / 2);
-        ctx.fill();
-    }
-
-    // Draw ghost
-    function drawGhost() {
-        ctx.fillStyle = ghost.color;
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size / 2, ghost.y + ghost.size / 2, ghost.size / 2, Math.PI, 0);
-        ctx.lineTo(ghost.x + ghost.size, ghost.y + ghost.size);
-        ctx.lineTo(ghost.x + ghost.size * 0.75, ghost.y + ghost.size * 0.75);
-        ctx.lineTo(ghost.x + ghost.size * 0.5, ghost.y + ghost.size);
-        ctx.lineTo(ghost.x + ghost.size * 0.25, ghost.y + ghost.size * 0.75);
-        ctx.lineTo(ghost.x, ghost.y + ghost.size);
-        ctx.lineTo(ghost.x, ghost.y + ghost.size / 2);
-        ctx.fill();
-        
-        // Draw eyes
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size / 3, ghost.y + ghost.size / 3, ghost.size / 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size * 2/3, ghost.y + ghost.size / 3, ghost.size / 6, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = 'blue';
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size / 3, ghost.y + ghost.size / 3, ghost.size / 12, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size * 2/3, ghost.y + ghost.size / 3, ghost.size / 12, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    // Function to handle collision with ghosts
-    function handleGhostCollision() {
-        if (ghost.frightened) {
-            score += 200;
-            scoreElement.textContent = score;
-            ghost.x = 14 * CELL_SIZE;
-            ghost.y = 11 * CELL_SIZE;
-            ghost.frightened = false;
-        } else {
-            lives--;
-            livesElement.textContent = lives;
-            if (lives <= 0) {
-                gameState = GAME_STATE.GAME_OVER;
-                showGameOverScreen('Game Over');
-            } else {
-                resetPositions();
-            }
-        }
-    }
-
-    // Function to reset positions
-    function resetPositions() {
-        pacman.x = 14 * CELL_SIZE;
-        pacman.y = 23 * CELL_SIZE;
-        pacman.direction = 'right';
-        pacman.nextDirection = 'right';
-        
-        ghost.x = 14 * CELL_SIZE;
-        ghost.y = 11 * CELL_SIZE;
-    }
-
-    // Function to show game over screen
-    function showGameOverScreen(message) {
+    // Function to reset the game and setup the start state
+    function resetGame() {
         menu.style.display = 'block';
         startButton.textContent = 'Play Again';
         if (animationFrameId) {
@@ -517,338 +399,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Function to reset the game
-    function resetGame() {
-        score = 0;
-        lives = 3;
-        gameState = GAME_STATE.PLAYING;
-        scoreElement.textContent = score;
-        livesElement.textContent = lives;
-        resetPositions();
-        countPellets();
-    }
+    // Function for managing the game actions
+    function gameLoop() {
+        updatePacman();
+        moveGhost();
 
-    // Function to start the game
-    function startGame() {
-        gameState = GAME_STATE.PLAYING;
-        menu.style.display = 'none';
-        lastFrameTime = performance.now();
-        gameLoop(lastFrameTime);
-    }
-
-    // Optimize game loop
-    function gameLoop(timestamp) {
-        if (!lastFrameTime) {
-            lastFrameTime = timestamp;
-            animationFrameId = requestAnimationFrame(gameLoop);
-            return;
-        }
-
-        const deltaTime = timestamp - lastFrameTime;
-        if (deltaTime < 16) { // Cap at ~60 FPS
-            animationFrameId = requestAnimationFrame(gameLoop);
-            return;
-        }
-
-        lastFrameTime = timestamp;
-
-        updateGame(deltaTime);
-        drawGame();
-
-        if (pelletCount <= 0) {
-            gameState = GAME_STATE.GAME_OVER;
-            showGameOverScreen('You Win!');
-            return;
-        }
-    }
-
-    // Update the game state
-    function updateGame(deltaTime) {
-        updatePacman(deltaTime);
-        moveGhost(deltaTime);
-        
+        // Loop through and check for collisions
         if (checkCollision(pacman, ghost)) {
             handleGhostCollision();
         }
     }
 
-    // Draw pacman
-    function drawPacman() {
-        ctx.fillStyle = pacman.color;
-        ctx.beginPath();
-        
-        const mouthAngle = pacman.mouthOpen ? pacman.mouthAngle : 0;
-        let startAngle = 0;
-        let endAngle = Math.PI * 2;
-        
-        if (pacman.direction === 'right') {
-            startAngle = mouthAngle;
-            endAngle = Math.PI * 2 - mouthAngle;
-        } else if (pacman.direction === 'left') {
-            startAngle = Math.PI + mouthAngle;
-            endAngle = Math.PI - mouthAngle;
-        } else if (pacman.direction === 'up') {
-            startAngle = Math.PI * 1.5 + mouthAngle;
-            endAngle = Math.PI * 1.5 - mouthAngle;
-        } else if (pacman.direction === 'down') {
-            startAngle = Math.PI * 0.5 + mouthAngle;
-            endAngle = Math.PI * 0.5 - mouthAngle;
-        }
-        
-        ctx.arc(pacman.x + pacman.size / 2, pacman.y + pacman.size / 2, pacman.size / 2, startAngle, endAngle);
-        ctx.lineTo(pacman.x + pacman.size / 2, pacman.y + pacman.size / 2);
-        ctx.fill();
-    }
-
-    // Draw ghost
-    function drawGhost() {
-        ctx.fillStyle = ghost.color;
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size / 2, ghost.y + ghost.size / 2, ghost.size / 2, Math.PI, 0);
-        ctx.lineTo(ghost.x + ghost.size, ghost.y + ghost.size);
-        ctx.lineTo(ghost.x + ghost.size * 0.75, ghost.y + ghost.size * 0.75);
-        ctx.lineTo(ghost.x + ghost.size * 0.5, ghost.y + ghost.size);
-        ctx.lineTo(ghost.x + ghost.size * 0.25, ghost.y + ghost.size * 0.75);
-        ctx.lineTo(ghost.x, ghost.y + ghost.size);
-        ctx.lineTo(ghost.x, ghost.y + ghost.size / 2);
-        ctx.fill();
-        
-        // Draw eyes
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size / 3, ghost.y + ghost.size / 3, ghost.size / 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size * 2/3, ghost.y + ghost.size / 3, ghost.size / 6, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = 'blue';
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size / 3, ghost.y + ghost.size / 3, ghost.size / 12, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size * 2/3, ghost.y + ghost.size / 3, ghost.size / 12, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    // Function to handle collision with ghosts
-    function handleGhostCollision() {
-        if (ghost.frightened) {
-            score += 200;
-            scoreElement.textContent = score;
-            ghost.x = 14 * CELL_SIZE;
-            ghost.y = 11 * CELL_SIZE;
-            ghost.frightened = false;
-        } else {
-            lives--;
-            livesElement.textContent = lives;
-            if (lives <= 0) {
-                gameState = GAME_STATE.GAME_OVER;
-                showGameOverScreen('Game Over');
-            } else {
-                resetPositions();
-            }
-        }
-    }
-
-    // Function to reset positions
-    function resetPositions() {
+    // Function that sets up and runs the game
+    function setGame() {
         pacman.x = 14 * CELL_SIZE;
         pacman.y = 23 * CELL_SIZE;
-        pacman.direction = 'right';
-        pacman.nextDirection = 'right';
-        
         ghost.x = 14 * CELL_SIZE;
         ghost.y = 11 * CELL_SIZE;
     }
 
-    // Function to show game over screen
-    function showGameOverScreen(message) {
-        menu.style.display = 'block';
-        startButton.textContent = 'Play Again';
-        if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-        }
-    }
-
-    // Function to reset the game
-    function resetGame() {
-        score = 0;
-        lives = 3;
-        gameState = GAME_STATE.PLAYING;
-        scoreElement.textContent = score;
-        livesElement.textContent = lives;
-        resetPositions();
-        countPellets();
-    }
-
-    // Function to start the game
-    function startGame() {
-        gameState = GAME_STATE.PLAYING;
-        menu.style.display = 'none';
-        lastFrameTime = performance.now();
-        gameLoop(lastFrameTime);
-    }
-
-    // Optimize game loop
-    function gameLoop(timestamp) {
-        if (!lastFrameTime) {
-            lastFrameTime = timestamp;
-            animationFrameId = requestAnimationFrame(gameLoop);
-            return;
-        }
-
-        const deltaTime = timestamp - lastFrameTime;
-        if (deltaTime < 16) { // Cap at ~60 FPS
-            animationFrameId = requestAnimationFrame(gameLoop);
-            return;
-        }
-
-        lastFrameTime = timestamp;
-
-        updateGame(deltaTime);
-        drawGame();
-
-        if (pelletCount <= 0) {
-            gameState = GAME_STATE.GAME_OVER;
-            showGameOverScreen('You Win!');
-            return;
-        }
-    }
-
-    // Update the game state
-    function updateGame(deltaTime) {
-        updatePacman(deltaTime);
-        moveGhost(deltaTime);
-        
-        if (checkCollision(pacman, ghost)) {
-            handleGhostCollision();
-        }
-    }
-
-    // Draw pacman
-    function drawPacman() {
-        ctx.fillStyle = pacman.color;
-        ctx.beginPath();
-        
-        const mouthAngle = pacman.mouthOpen ? pacman.mouthAngle : 0;
-        let startAngle = 0;
-        let endAngle = Math.PI * 2;
-        
-        if (pacman.direction === 'right') {
-            startAngle = mouthAngle;
-            endAngle = Math.PI * 2 - mouthAngle;
-        } else if (pacman.direction === 'left') {
-            startAngle = Math.PI + mouthAngle;
-            endAngle = Math.PI - mouthAngle;
-        } else if (pacman.direction === 'up') {
-            startAngle = Math.PI * 1.5 + mouthAngle;
-            endAngle = Math.PI * 1.5 - mouthAngle;
-        } else if (pacman.direction === 'down') {
-            startAngle = Math.PI * 0.5 + mouthAngle;
-            endAngle = Math.PI * 0.5 - mouthAngle;
-        }
-        
-        ctx.arc(pacman.x + pacman.size / 2, pacman.y + pacman.size / 2, pacman.size / 2, startAngle, endAngle);
-        ctx.lineTo(pacman.x + pacman.size / 2, pacman.y + pacman.size / 2);
-        ctx.fill();
-    }
-
-    // Draw ghost
-    function drawGhost() {
-        ctx.fillStyle = ghost.color;
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size / 2, ghost.y + ghost.size / 2, ghost.size / 2, Math.PI, 0);
-        ctx.lineTo(ghost.x + ghost.size, ghost.y + ghost.size);
-        ctx.lineTo(ghost.x + ghost.size * 0.75, ghost.y + ghost.size * 0.75);
-        ctx.lineTo(ghost.x + ghost.size * 0.5, ghost.y + ghost.size);
-        ctx.lineTo(ghost.x + ghost.size * 0.25, ghost.y + ghost.size * 0.75);
-        ctx.lineTo(ghost.x, ghost.y + ghost.size);
-        ctx.lineTo(ghost.x, ghost.y + ghost.size / 2);
-        ctx.fill();
-        
-        // Draw eyes
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size / 3, ghost.y + ghost.size / 3, ghost.size / 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size * 2/3, ghost.y + ghost.size / 3, ghost.size / 6, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = 'blue';
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size / 3, ghost.y + ghost.size / 3, ghost.size / 12, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(ghost.x + ghost.size * 2/3, ghost.y + ghost.size / 3, ghost.size / 12, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    // Function to handle collision with ghosts
-    function handleGhostCollision() {
-        if (ghost.frightened) {
-            score += 200;
-            scoreElement.textContent = score;
-            ghost.x = 14 * CELL_SIZE;
-            ghost.y = 11 * CELL_SIZE;
-            ghost.frightened = false;
-        } else {
-            lives--;
-            livesElement.textContent = lives;
-            if (lives <= 0) {
-                gameState = GAME_STATE.GAME_OVER;
-                showGameOverScreen('Game Over');
-            } else {
-                resetPositions();
-            }
-        }
-    }
-
-    // Function to reset positions
-    function resetPositions() {
-        pacman.x = 14 * CELL_SIZE;
-        pacman.y = 23 * CELL_SIZE;
-        pacman.direction = 'right';
-        pacman.nextDirection = 'right';
-        
-        ghost.x = 14 * CELL_SIZE;
-        ghost.y = 11 * CELL_SIZE;
-    }
-
-    // Function to show game over screen
-    function showGameOverScreen(message) {
-        menu.style.display = 'block';
-        startButton.textContent = 'Play Again';
-        if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-        }
-    }
-
-    // Function to reset the game
-    function resetGame() {
-        score = 0;
-        lives = 3;
-        gameState = GAME_STATE.PLAYING;
-        scoreElement.textContent = score;
-        livesElement.textContent = lives;
-        resetPositions();
-        countPellets();
-    }
-
-    // Function to start the game
-    function startGame() {
-        gameState = GAME_STATE.PLAYING;
-        menu.style.display = 'none';
-        lastFrameTime = performance.now();
-        gameLoop(lastFrameTime);
-    }
-
-    // Start Game
-
-    // Function initialization
-    startButton.addEventListener('click', startGame);
+    // Initialization
+    setGame();
+    const timer = resetGame();
+    startButton.addEventListener('click', timer);
     gameLoop();
-
-    // Optimize game loop
 });
