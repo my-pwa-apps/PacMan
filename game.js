@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lives = 3;
     let pelletCount = 0; // Initialize to 0, will set correctly later
     
-    // Complete maze definition - crucial to have this fully defined before use
+    // Define maze first
     const maze = [
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
         [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
@@ -66,11 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ];
     
-    // Store original maze state for resetting - create a deep copy of the maze for resets
-    const originalMaze = [];
-    for (let y = 0; y < maze.length; y++) {
-        originalMaze[y] = [...maze[y]];
-    }
+    // Create a deep copy of the maze right after definition
+    const originalMaze = JSON.parse(JSON.stringify(maze));
     
     // Game objects
     let pacman = {
@@ -390,21 +387,15 @@ document.addEventListener('DOMContentLoaded', () => {
         gameState = GAME_STATE.PLAYING;
         scoreElement.textContent = score;
         livesElement.textContent = lives;
-        resetPositions();
         
-        // Reset all pellets in the maze
+        // Reset the maze back to original state with all pellets
         for (let y = 0; y < ROWS; y++) {
             for (let x = 0; x < COLS; x++) {
-                // Restore pellets to original positions
-                if (maze[y][x] === PATH && originalMaze[y][x] === PELLET) {
-                    maze[y][x] = PELLET;
-                } else if (maze[y][x] === PATH && originalMaze[y][x] === POWER_PELLET) {
-                    maze[y][x] = POWER_PELLET;
-                }
+                maze[y][x] = originalMaze[y][x];
             }
         }
         
-        // Count pellets after restoring them
+        resetPositions();
         pelletCount = countPellets();
     }
 
