@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const PATH = 0;
     const PELLET = 2;
     const POWER_PELLET = 3;
-    
+
     // Define complete maze layout first
     const maze = [
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -59,14 +59,64 @@ document.addEventListener('DOMContentLoaded', () => {
         GAME_OVER: 3
     };
 
-    // Game State Initialization
+    // Initialize basic variables
     let gameState = GAME_STATE.MENU;
     let animationFrameId = null;
     let lastFrameTime = 0;
     let score = 0;
     let lives = 3;
     let pelletCount = 0;
-    let paused = false;
+
+    // Game objects initialization
+    let pacman = {
+        x: 14 * CELL_SIZE,
+        y: 23 * CELL_SIZE,
+        direction: 'right',
+        nextDirection: 'right',
+        speed: CELL_SIZE,
+        size: CELL_SIZE,
+        color: 'yellow',
+        mouthAngle: 0.5,
+        mouthOpen: true
+    };
+    let ghost = {
+        x: 14 * CELL_SIZE,
+        y: 11 * CELL_SIZE,
+        speed: CELL_SIZE,
+        size: CELL_SIZE,
+        color: 'red',
+        frightened: false,
+        mode: 'chase',
+        modeTimer: 0,
+        modeDuration: { chase: 3000, scatter: 3000 },
+        scatterTarget: { x: 1, y: 1 },
+        frightMode: true
+    };
+
+    // Move initialization into a proper setup function
+    function initializeGame() {
+        pelletCount = countPellets();
+        resetPositions();
+        score = 0;
+        lives = 3;
+        gameState = GAME_STATE.PLAYING;
+        scoreElement.textContent = score;
+        livesElement.textContent = lives;
+    }
+
+    function countPellets() {
+        let count = 0;
+        if (!maze) return 0;
+        
+        for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (maze[y][x] === PELLET || maze[y][x] === POWER_PELLET) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
 
     // Pause functionality
     document.addEventListener('keydown', (e) => {
@@ -478,14 +528,60 @@ document.addEventListener('DOMContentLoaded', () => {
     function startGame() {
         gameState = GAME_STATE.PLAYING;
         menu.style.display = 'none';
-        resetGame();
         lastFrameTime = performance.now();
-        animationFrameId = requestAnimationFrame(gameLoop);
+        gameLoop(lastFrameTime);
     }
 
-    // Initialize game state
-    startButton.addEventListener('click', () => startGame());
+    // Optimize game loop
+    function gameLoop(timestamp) {
+        if (!lastFrameTime) {
+            lastFrameTime = timestamp;
+            animationFrameId = requestAnimationFrame(gameLoop);
+            return;
+        }
 
-    // Start the first loop
+        const deltaTime = timestamp - lastFrameTime;
+        if (deltaTime < 16) { // Cap at ~60 FPS
+            animationFrameId = requestAnimationFrame(gameLoop);
+            return;
+        }
+
+        lastFrameTime = timestamp;
+
+        updateGame(deltaTime);
+        drawGame();
+
+        if (pelletCount <= 0) {
+            gameState = GAME_STATE.GAME_OVER;
+            showGameOverScreen('You Win!');
+            return;
+        }
+    }
+
+    // Draw game
+    function drawGame() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Draw maze and update score
+        for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                const tile = maze[y][x];
+                if (tile === WALL) {
+                    ctx.fillStyle = 'black';
+                    ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                }
+            }
+        }
+        drawPacman();
+        drawGhost();
+        // Draw score
+        ctx.fillStyle = 'black';
+        ctx.font = '16px Arial';
+        ctx.fillText(`Score: ${score}`, 20, 30);
+        ctx.fillText(`Lives: ${lives}`, canvas.width - 100, 30);
+    }
+
+    // Function initialization
+    startButton.addEventListener('click', startGame);
     gameLoop();
+
 });
