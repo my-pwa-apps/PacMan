@@ -406,6 +406,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return bestMove;
     }
 
+    function countPellets() {
+        pelletCount = 0;
+        for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                if (maze[y][x] === PELLET || maze[y][x] === POWER_PELLET) {
+                    pelletCount++;
+                }
+            }
+        }
+        return pelletCount;
+    }
+
     // Initialize game start button
     startButton.addEventListener('click', () => {
         gameState = GAME_STATE.PLAYING;
