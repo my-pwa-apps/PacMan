@@ -16,22 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const PATH = 0;
     const PELLET = 2;
     const POWER_PELLET = 3;
-    
-    // Game state management
-    const GAME_STATE = {
-        MENU: 0,
-        PLAYING: 1,
-        PAUSED: 2,
-        GAME_OVER: 3
-    };
-    let gameState = GAME_STATE.MENU;
-    let animationFrameId = null;
-    let lastFrameTime = 0;
-    let score = 0;
-    let lives = 3;
-    let pelletCount = 0;
 
-    // Define the complete maze layout
+    // Define maze immediately after constants
     const maze = [
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
         [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
@@ -52,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         [1,1,1,1,1,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,1,1,1,1,1],
         [1,1,1,1,1,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1,1,2,1,1,1,1,1,1],
         [1,1,1,1,1,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,1,1,1,1,1],
-        [1,2,2,2,2,2,1,1,2,2,2,2,2,1,1,2,2,2,2,2,2,1,2,2,2,2,2,1],
+        [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
         [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
         [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
         [1,3,2,2,1,1,2,2,2,2,2,2,2,0,0,2,2,2,2,2,2,2,1,1,2,2,3,1],
@@ -64,6 +50,22 @@ document.addEventListener('DOMContentLoaded', () => {
         [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ];
+
+    // Game state management
+    const GAME_STATE = {
+        MENU: 0,
+        PLAYING: 1,
+        PAUSED: 2,
+        GAME_OVER: 3
+    };
+    
+    // Initialize state variables
+    let gameState = GAME_STATE.MENU;
+    let animationFrameId = null;
+    let lastFrameTime = 0;
+    let score = 0;
+    let lives = 3;
+    let pelletCount = 0;
 
     // Function to check if a position is valid (not a wall)
     function isValidPosition(x, y) {
