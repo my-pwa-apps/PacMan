@@ -66,6 +66,9 @@ document.addEventListener('DOMContentLoaded', () => {
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ];
     
+    // Store original maze state for resetting
+    const originalMaze = maze.map(row => [...row]);
+    
     // Game objects
     let pacman = {
         x: 14 * CELL_SIZE,
@@ -392,10 +395,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to reset the game and setup the start state
     function resetGame() {
+        score = 0;
+        lives = 3;
+        gameState = GAME_STATE.PLAYING;
+        scoreElement.textContent = score;
+        livesElement.textContent = lives;
+        resetPositions();
+        
+        // Reset all pellets in the maze
+        for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+                // Restore pellets to original positions
+                if (maze[y][x] === PATH && originalMaze[y][x] === PELLET) {
+                    maze[y][x] = PELLET;
+                } else if (maze[y][x] === PATH && originalMaze[y][x] === POWER_PELLET) {
+                    maze[y][x] = POWER_PELLET;
+                }
+            }
+        }
+        
+        // Count pellets after restoring them
+        pelletCount = countPellets();
+    }
+
+    // Show Game Over screen and message
+    function showGameOverScreen(message) {
         menu.style.display = 'block';
         startButton.textContent = 'Play Again';
+        
+        // Add this: display win/lose message
+        const messageElement = document.createElement('p');
+        messageElement.textContent = message;
+        messageElement.style.color = 'white';
+        messageElement.style.fontSize = '24px';
+        messageElement.style.marginBottom = '20px';
+        
+        // Clear any previous messages
+        const existingMessage = menu.querySelector('.game-over-message');
+        if (existingMessage) {
+            menu.removeChild(existingMessage);
+        }
+        
+        messageElement.className = 'game-over-message';
+        menu.insertBefore(messageElement, startButton);
+        
         if (animationFrameId) {
             cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
         }
     }
 
@@ -423,4 +469,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const timer = resetGame();
     startButton.addEventListener('click', timer);
     gameLoop();
+    
+    // Update startButton event listener
+    startButton.addEventListener('click', () => {
+        gameState = GAME_STATE.PLAYING;
+        menu.style.display = 'none';
+        
+        // Reset the game regardless if it's a new game or play again
+        resetGame();
+        lastFrameTime = performance.now();
+        animationFrameId = requestAnimationFrame(gameLoop);
+    });    
+    // Update handleGhostCollision to use showGameOverScreen
+    function handleGhostCollision() {
+        if (ghost.frightened) {
+            score += 200;
+            scoreElement.textContent = score;
+            ghost.x = 14 * CELL_SIZE;
+            ghost.y = 11 * CELL_SIZE;
+            ghost.frightened = false;
+        } else {
+            lives--;
+            livesElement.textContent = lives;
+            if (lives <= 0) {
+                gameState = GAME_STATE.GAME_OVER;
+                showGameOverScreen('Game Over!');
+            } else {
+                resetPositions();
+            }
+        }
+    }
 });
